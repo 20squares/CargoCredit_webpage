@@ -56,34 +56,77 @@ export function generateGraph(): Graph {
   return { nodes, edges };
 }
 
-export function getScrollPath(graph: Graph, scrollProgress: number): Path {
-  // Define the complete path sequence
-  const sequence = [
-    { nodes: ['buyer', 'tier1'], progress: 0.25 },
-    { nodes: ['buyer', 'tier1', 'tier2-1'], progress: 0.5 },
-    { nodes: ['buyer', 'tier1', 'tier2-2'], progress: 0.65 },
-    { nodes: ['buyer', 'tier1', 'tier2-1', 'tier3'], progress: 0.85 },
-  ];
+export function getScrollBasedFlow(graph: Graph, scrollProgress: number): {
+  activeEdges: Array<{ edge: Edge; flowProgress: number }>;
+  activeNodes: Array<{ nodeId: string; intensity: number }>;
+} {
+  // Map scroll progress to flow through the network
+  // 0-0.3: Buyer to Tier-1
+  // 0.3-0.6: Tier-1 to both Tier-2 suppliers (branching)
+  // 0.6-1.0: Tier2-1 to Tier-3
   
-  // Find which path segment we should show based on scroll
-  let activeSequence = sequence[0];
-  for (const seq of sequence) {
-    if (scrollProgress >= seq.progress) {
-      activeSequence = seq;
+  const activeEdges: Array<{ edge: Edge; flowProgress: number }> = [];
+  const activeNodes: Array<{ nodeId: string; intensity: number }> = [];
+  
+  // Always show buyer as starting point
+  activeNodes.push({ nodeId: 'buyer', intensity: 1.0 });
+  
+  // Stage 1: Buyer → Tier-1 (0-0.3)
+  if (scrollProgress > 0) {
+    const edge1 = graph.edges.find(e => e.from === 'buyer' && e.to === 'tier1');
+    if (edge1) {
+      const flowProgress = Math.min(1.0, scrollProgress / 0.3);
+      activeEdges.push({ edge: edge1, flowProgress });
+      
+      if (flowProgress > 0.5) {
+        activeNodes.push({ nodeId: 'tier1', intensity: Math.min(1.0, (flowProgress - 0.5) * 2) });
+      }
     }
   }
   
-  // Build the path with edges
-  const pathEdges: Edge[] = [];
-  for (let i = 0; i < activeSequence.nodes.length - 1; i++) {
-    const edge = graph.edges.find(
-      e => e.from === activeSequence.nodes[i] && e.to === activeSequence.nodes[i + 1]
-    );
-    if (edge) pathEdges.push(edge);
+  // Stage 2: Tier-1 → Tier-2 branches (0.3-0.6)
+  if (scrollProgress > 0.3) {
+    const normalizedProgress = (scrollProgress - 0.3) / 0.3; // 0-1 for this stage
+    
+    // Branch to tier2-1
+    const edge2a = graph.edges.find(e => e.from === 'tier1' && e.to === 'tier2-1');
+    if (edge2a) {
+      const flowProgress = Math.min(1.0, normalizedProgress);
+      activeEdges.push({ edge: edge2a, flowProgress });
+      
+      if (flowProgress > 0.5) {
+        activeNodes.push({ nodeId: 'tier2-1', intensity: Math.min(1.0, (flowProgress - 0.5) * 2) });
+      }
+    }
+    
+    // Branch to tier2-2 (starts slightly later for visual effect)
+    const edge2b = graph.edges.find(e => e.from === 'tier1' && e.to === 'tier2-2');
+    if (edge2b) {
+      const delayedProgress = Math.max(0, normalizedProgress - 0.2); // Start 20% later
+      const flowProgress = Math.min(1.0, delayedProgress / 0.8);
+      if (flowProgress > 0) {
+        activeEdges.push({ edge: edge2b, flowProgress });
+        
+        if (flowProgress > 0.5) {
+          activeNodes.push({ nodeId: 'tier2-2', intensity: Math.min(1.0, (flowProgress - 0.5) * 2) });
+        }
+      }
+    }
   }
   
-  return {
-    nodes: activeSequence.nodes,
-    edges: pathEdges,
-  };
+  // Stage 3: Tier2-1 → Tier-3 (0.6-1.0)
+  if (scrollProgress > 0.6) {
+    const normalizedProgress = (scrollProgress - 0.6) / 0.4; // 0-1 for this stage
+    const edge3 = graph.edges.find(e => e.from === 'tier2-1' && e.to === 'tier3');
+    if (edge3) {
+      const flowProgress = Math.min(1.0, normalizedProgress);
+      activeEdges.push({ edge: edge3, flowProgress });
+      
+      if (flowProgress > 0.5) {
+        activeNodes.push({ nodeId: 'tier3', intensity: Math.min(1.0, (flowProgress - 0.5) * 2) });
+      }
+    }
+  }
+  
+  return { activeEdges, activeNodes };
 }

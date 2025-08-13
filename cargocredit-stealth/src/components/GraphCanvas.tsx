@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateGraph, getScrollPath, type Graph, type Path } from '../lib/graph';
+import { generateGraph, getScrollBasedFlow, type Graph } from '../lib/graph';
 
 interface TooltipData {
   x: number;
@@ -11,7 +11,6 @@ interface TooltipData {
 const GraphCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [graph] = useState<Graph>(() => generateGraph());
-  const [currentPath, setCurrentPath] = useState<Path | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +21,9 @@ const GraphCanvas: React.FC = () => {
     // Scale factor for responsive design (adjusted for vertical layout)
     const scaleX = width / 1000;
     const scaleY = height / 650;
+    
+    // Get current flow state based on scroll
+    const flowState = getScrollBasedFlow(graph, scrollProgress);
 
     // Draw all edges first (inactive)
     graph.edges.forEach(edge => {
@@ -38,79 +40,67 @@ const GraphCanvas: React.FC = () => {
       }
     });
 
-    // Draw active path edges on top
-    if (currentPath) {
-      currentPath.edges.forEach((edge) => {
-        const fromNode = graph.nodes.find(n => n.id === edge.from);
-        const toNode = graph.nodes.find(n => n.id === edge.to);
+    // Draw active flow edges
+    flowState.activeEdges.forEach(({ edge, flowProgress }) => {
+      const fromNode = graph.nodes.find(n => n.id === edge.from);
+      const toNode = graph.nodes.find(n => n.id === edge.to);
+      
+      if (fromNode && toNode) {
+        // Create gradient based on flow progress
+        const gradient = ctx.createLinearGradient(
+          fromNode.x * scaleX, fromNode.y * scaleY,
+          toNode.x * scaleX, toNode.y * scaleY
+        );
         
-        if (fromNode && toNode) {
-          // Animated gradient flowing along the edge
-          const gradient = ctx.createLinearGradient(
-            fromNode.x * scaleX, fromNode.y * scaleY,
-            toNode.x * scaleX, toNode.y * scaleY
-          );
-          
-          // Continuous flowing animation based on time
-          const time = Date.now() * 0.001; // Convert to seconds
-          const flowProgress = (time * 0.5) % 2; // Continuous flow every 2 seconds
-          
-          // Create a flowing gradient effect
-          const glowPos1 = (flowProgress % 1);
-          const glowPos2 = ((flowProgress + 0.3) % 1);
-          
-          gradient.addColorStop(0, 'rgba(110, 231, 183, 0.2)');
-          gradient.addColorStop(Math.max(0, glowPos1 - 0.1), 'rgba(110, 231, 183, 0.2)');
-          gradient.addColorStop(glowPos1, 'rgba(110, 231, 183, 0.8)');
-          gradient.addColorStop(Math.min(1, glowPos1 + 0.1), 'rgba(110, 231, 183, 0.2)');
-          gradient.addColorStop(Math.max(0, glowPos2 - 0.1), 'rgba(110, 231, 183, 0.2)');
-          gradient.addColorStop(glowPos2, 'rgba(110, 231, 183, 0.6)');
-          gradient.addColorStop(Math.min(1, glowPos2 + 0.1), 'rgba(110, 231, 183, 0.2)');
-          gradient.addColorStop(1, 'rgba(110, 231, 183, 0.2)');
-          
-          ctx.beginPath();
-          ctx.moveTo(fromNode.x * scaleX, fromNode.y * scaleY);
-          ctx.lineTo(toNode.x * scaleX, toNode.y * scaleY);
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 3;
-          ctx.stroke();
+        // Flow progresses from 0 to flowProgress
+        const flowEnd = Math.min(1, flowProgress);
+        const glowSize = 0.1; // Size of the glow effect
+        
+        gradient.addColorStop(0, 'rgba(110, 231, 183, 0.3)');
+        
+        if (flowEnd > glowSize) {
+          gradient.addColorStop(Math.max(0, flowEnd - glowSize), 'rgba(110, 231, 183, 0.3)');
+          gradient.addColorStop(flowEnd - glowSize/2, 'rgba(110, 231, 183, 0.9)');
         }
-      });
-    }
+        
+        gradient.addColorStop(flowEnd, 'rgba(110, 231, 183, 1.0)');
+        
+        if (flowEnd < 1) {
+          gradient.addColorStop(Math.min(1, flowEnd + 0.01), 'rgba(110, 231, 183, 0)');
+          gradient.addColorStop(1, 'rgba(110, 231, 183, 0)');
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(fromNode.x * scaleX, fromNode.y * scaleY);
+        ctx.lineTo(toNode.x * scaleX, toNode.y * scaleY);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+    });
 
     // Draw nodes
     graph.nodes.forEach(node => {
       const x = node.x * scaleX;
       const y = node.y * scaleY;
       
-      // Check if node is in current path
-      const isActive = currentPath?.nodes.includes(node.id);
-      const nodeIndex = currentPath?.nodes.indexOf(node.id) ?? -1;
-      const isLastNode = isActive && nodeIndex === currentPath!.nodes.length - 1;
+      // Check if node is active and get its intensity
+      const activeNode = flowState.activeNodes.find(n => n.nodeId === node.id);
+      const isActive = !!activeNode;
+      const intensity = activeNode?.intensity || 0;
       
       ctx.beginPath();
       ctx.arc(x, y, node.id === 'buyer' ? 10 : 8, 0, Math.PI * 2);
       
       if (isActive) {
-        if (isLastNode) {
-          // Enhanced pulsing effect for last active node
-          const time = Date.now() * 0.001;
-          const pulse = Math.sin(time * 2) * 0.4 + 0.6;
-          ctx.fillStyle = `rgba(110, 231, 183, ${pulse})`;
-          ctx.fill();
-          
-          // Dynamic glow effect
-          const glowIntensity = Math.sin(time * 1.5) * 10 + 20;
-          ctx.shadowBlur = glowIntensity;
-          ctx.shadowColor = '#6EE7B7';
-        } else {
-          // Subtle glow for active nodes
-          const time = Date.now() * 0.001;
-          const brightness = Math.sin(time * 1.5 + nodeIndex) * 0.2 + 0.8;
-          ctx.fillStyle = `rgba(110, 231, 183, ${brightness})`;
-          ctx.fill();
-          
-          ctx.shadowBlur = 8;
+        // Glow effect based on intensity
+        const alpha = 0.3 + (intensity * 0.7);
+        ctx.fillStyle = `rgba(110, 231, 183, ${alpha})`;
+        ctx.fill();
+        
+        // Dynamic glow effect
+        if (intensity > 0.8) {
+          ctx.shadowBlur = 15 * intensity;
           ctx.shadowColor = '#6EE7B7';
         }
       } else {
@@ -126,14 +116,14 @@ const GraphCanvas: React.FC = () => {
       ctx.stroke();
       
       // Add labels for active nodes
-      if (isActive) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      if (isActive && intensity > 0.5) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`;
         ctx.font = '12px Inter';
         ctx.textAlign = 'center';
         ctx.fillText(node.label, x, y - 15);
       }
     });
-  }, [graph, currentPath, scrollProgress]);
+  }, [graph, scrollProgress]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -177,10 +167,6 @@ const GraphCanvas: React.FC = () => {
       const progress = Math.min(1, Math.max(0, scrollY / scrollableHeight));
       
       setScrollProgress(progress);
-      
-      // Update path based on scroll
-      const newPath = getScrollPath(graph, progress);
-      setCurrentPath(newPath);
     };
 
     // Initial setup
@@ -193,7 +179,7 @@ const GraphCanvas: React.FC = () => {
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleScroll);
     };
-  }, [graph]);
+  }, []);
 
   // Animation loop for pulsing effects and gradient movement
   useEffect(() => {
@@ -228,6 +214,8 @@ const GraphCanvas: React.FC = () => {
     const scaleY = rect.height / 500;
 
     // Check if mouse is over any node
+    const flowState = getScrollBasedFlow(graph, scrollProgress);
+    
     for (const node of graph.nodes) {
       const nodeX = node.x * scaleX;
       const nodeY = node.y * scaleY;
@@ -236,10 +224,11 @@ const GraphCanvas: React.FC = () => {
       if (distance < 15) {
         // Show tooltip
         let content = node.label;
-        if (currentPath?.nodes.includes(node.id)) {
-          const edge = currentPath.edges.find(e => e.to === node.id);
-          if (edge?.meta) {
-            content += `\n${edge.meta.term || ''} ${edge.meta.amount ? `$${edge.meta.amount.toLocaleString()}` : ''}`;
+        const activeNode = flowState.activeNodes.find(n => n.nodeId === node.id);
+        if (activeNode) {
+          const incomingEdge = graph.edges.find(e => e.to === node.id);
+          if (incomingEdge?.meta) {
+            content += `\n${incomingEdge.meta.term || ''} ${incomingEdge.meta.amount ? `$${incomingEdge.meta.amount.toLocaleString()}` : ''}`;
           }
         }
         
