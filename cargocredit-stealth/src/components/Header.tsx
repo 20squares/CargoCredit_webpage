@@ -22,16 +22,6 @@ const Header: React.FC = () => {
               </span>
             </motion.div>
             
-            <motion.button
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              onClick={() => setShowModal(true)}
-              className="px-4 py-2 text-sm font-medium bg-white/5 hover:bg-white/10 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50"
-              aria-label="Request early access"
-            >
-              Request early access
-            </motion.button>
           </div>
         </div>
       </header>

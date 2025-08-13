@@ -28,16 +28,6 @@ const Hero: React.FC = () => {
             <p className="text-lg md:text-xl text-text/70 mb-8 max-w-2xl mx-auto backdrop-blur-sm bg-background/40 rounded-lg p-4">
               We're building programmable finance rails that move with supplier–buyer relationships.
             </p>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-accent/20 hover:bg-accent/30 border border-accent/50 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-accent/50 backdrop-blur-sm"
-              aria-label="Request early access"
-            >
-              Request early access
-            </motion.button>
           </motion.div>
         </div>
       </section>

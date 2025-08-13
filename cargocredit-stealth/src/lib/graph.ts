@@ -31,7 +31,7 @@ export function generateGraph(): Graph {
     { id: 'buyer', label: 'OEM Buyer', tier: 3, x: 500, y: 100 },
     
     // Tier-1 Supplier (below buyer)
-    { id: 'tier1', label: 'Tier-1 Supplier', tier: 2, x: 500, y: 250 },
+    { id: 'tier1', label: 'Supplier', tier: 2, x: 500, y: 250 },
     
     // Tier-2 Suppliers (branching - lower level)
     { id: 'tier2-1', label: 'Component Manufacturer', tier: 1, x: 350, y: 400 },
