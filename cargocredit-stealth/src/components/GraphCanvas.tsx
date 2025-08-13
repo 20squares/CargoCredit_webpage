@@ -19,9 +19,9 @@ const GraphCanvas: React.FC = () => {
   const drawGraph = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.clearRect(0, 0, width, height);
     
-    // Scale factor for responsive design
+    // Scale factor for responsive design (adjusted for vertical layout)
     const scaleX = width / 1000;
-    const scaleY = height / 500;
+    const scaleY = height / 650;
 
     // Draw all edges first (inactive)
     graph.edges.forEach(edge => {
@@ -45,16 +45,28 @@ const GraphCanvas: React.FC = () => {
         const toNode = graph.nodes.find(n => n.id === edge.to);
         
         if (fromNode && toNode) {
-          // Animated gradient along the edge
+          // Animated gradient flowing along the edge
           const gradient = ctx.createLinearGradient(
             fromNode.x * scaleX, fromNode.y * scaleY,
             toNode.x * scaleX, toNode.y * scaleY
           );
           
-          const edgeProgress = (scrollProgress * 10) % 2;
-          gradient.addColorStop(0, 'rgba(110, 231, 183, 0.8)');
-          gradient.addColorStop(Math.min(1, edgeProgress), 'rgba(110, 231, 183, 0.8)');
-          gradient.addColorStop(Math.min(1, edgeProgress + 0.1), 'rgba(110, 231, 183, 0)');
+          // Continuous flowing animation based on time
+          const time = Date.now() * 0.001; // Convert to seconds
+          const flowProgress = (time * 0.5) % 2; // Continuous flow every 2 seconds
+          
+          // Create a flowing gradient effect
+          const glowPos1 = (flowProgress % 1);
+          const glowPos2 = ((flowProgress + 0.3) % 1);
+          
+          gradient.addColorStop(0, 'rgba(110, 231, 183, 0.2)');
+          gradient.addColorStop(Math.max(0, glowPos1 - 0.1), 'rgba(110, 231, 183, 0.2)');
+          gradient.addColorStop(glowPos1, 'rgba(110, 231, 183, 0.8)');
+          gradient.addColorStop(Math.min(1, glowPos1 + 0.1), 'rgba(110, 231, 183, 0.2)');
+          gradient.addColorStop(Math.max(0, glowPos2 - 0.1), 'rgba(110, 231, 183, 0.2)');
+          gradient.addColorStop(glowPos2, 'rgba(110, 231, 183, 0.6)');
+          gradient.addColorStop(Math.min(1, glowPos2 + 0.1), 'rgba(110, 231, 183, 0.2)');
+          gradient.addColorStop(1, 'rgba(110, 231, 183, 0.2)');
           
           ctx.beginPath();
           ctx.moveTo(fromNode.x * scaleX, fromNode.y * scaleY);
@@ -79,18 +91,28 @@ const GraphCanvas: React.FC = () => {
       ctx.beginPath();
       ctx.arc(x, y, node.id === 'buyer' ? 10 : 8, 0, Math.PI * 2);
       
-      if (isLastNode) {
-        // Pulsing effect for last active node
-        const pulse = Math.sin(Date.now() * 0.003) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(110, 231, 183, ${pulse})`;
-        ctx.fill();
-        
-        // Glow effect
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#6EE7B7';
-      } else if (isActive) {
-        ctx.fillStyle = 'rgba(110, 231, 183, 0.6)';
-        ctx.fill();
+      if (isActive) {
+        if (isLastNode) {
+          // Enhanced pulsing effect for last active node
+          const time = Date.now() * 0.001;
+          const pulse = Math.sin(time * 2) * 0.4 + 0.6;
+          ctx.fillStyle = `rgba(110, 231, 183, ${pulse})`;
+          ctx.fill();
+          
+          // Dynamic glow effect
+          const glowIntensity = Math.sin(time * 1.5) * 10 + 20;
+          ctx.shadowBlur = glowIntensity;
+          ctx.shadowColor = '#6EE7B7';
+        } else {
+          // Subtle glow for active nodes
+          const time = Date.now() * 0.001;
+          const brightness = Math.sin(time * 1.5 + nodeIndex) * 0.2 + 0.8;
+          ctx.fillStyle = `rgba(110, 231, 183, ${brightness})`;
+          ctx.fill();
+          
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#6EE7B7';
+        }
       } else {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.fill();

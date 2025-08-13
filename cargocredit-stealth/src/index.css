@@ -24,4 +24,7 @@
   .animation-delay-400 {
     animation-delay: 400ms;
   }
+  .text-shadow-lg {
+    text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  }
 }

@@ -22,7 +22,7 @@ const ValueProps: React.FC = () => {
   ];
 
   return (
-    <section className="py-24 px-6">
+    <section className="relative z-10 py-24 px-6 backdrop-blur-md bg-background/60">
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-3 gap-8">
           {props.map((prop, index) => (

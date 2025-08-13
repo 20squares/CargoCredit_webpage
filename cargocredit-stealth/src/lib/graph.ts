@@ -27,18 +27,18 @@ export type Path = {
 
 export function generateGraph(): Graph {
   const nodes: Node[] = [
-    // Buyer (Start point - left)
-    { id: 'buyer', label: 'OEM Buyer', tier: 3, x: 150, y: 250 },
+    // Buyer (Start point - top)
+    { id: 'buyer', label: 'OEM Buyer', tier: 3, x: 500, y: 100 },
     
-    // Tier-1 Supplier (center)
-    { id: 'tier1', label: 'Tier-1 Supplier', tier: 2, x: 400, y: 250 },
+    // Tier-1 Supplier (below buyer)
+    { id: 'tier1', label: 'Tier-1 Supplier', tier: 2, x: 500, y: 250 },
     
-    // Tier-2 Suppliers (branching - right center)
-    { id: 'tier2-1', label: 'Component Manufacturer', tier: 1, x: 650, y: 180 },
-    { id: 'tier2-2', label: 'Materials Provider', tier: 1, x: 650, y: 320 },
+    // Tier-2 Suppliers (branching - lower level)
+    { id: 'tier2-1', label: 'Component Manufacturer', tier: 1, x: 350, y: 400 },
+    { id: 'tier2-2', label: 'Materials Provider', tier: 1, x: 650, y: 400 },
     
-    // Tier-3 Supplier (far right)
-    { id: 'tier3', label: 'Raw Materials Supplier', tier: 0, x: 850, y: 180 },
+    // Tier-3 Supplier (bottom)
+    { id: 'tier3', label: 'Raw Materials Supplier', tier: 0, x: 350, y: 550 },
   ];
 
   const edges: Edge[] = [
