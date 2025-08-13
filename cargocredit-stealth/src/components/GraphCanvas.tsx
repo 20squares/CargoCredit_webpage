@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateGraph, findPaths, type Graph, type Path } from '../lib/graph';
+import { generateGraph, getScrollPath, type Graph, type Path } from '../lib/graph';
 
 interface TooltipData {
   x: number;
@@ -11,12 +11,10 @@ interface TooltipData {
 const GraphCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [graph] = useState<Graph>(() => generateGraph());
-  const [paths] = useState(() => findPaths(graph));
   const [currentPath, setCurrentPath] = useState<Path | null>(null);
-  const [animationProgress, setAnimationProgress] = useState(0);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
-  const animationRef = useRef<number | undefined>(undefined);
-  const pathIndexRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const drawGraph = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.clearRect(0, 0, width, height);
@@ -25,7 +23,7 @@ const GraphCanvas: React.FC = () => {
     const scaleX = width / 1000;
     const scaleY = height / 500;
 
-    // Draw edges
+    // Draw all edges first (inactive)
     graph.edges.forEach(edge => {
       const fromNode = graph.nodes.find(n => n.id === edge.from);
       const toNode = graph.nodes.find(n => n.id === edge.to);
@@ -34,33 +32,39 @@ const GraphCanvas: React.FC = () => {
         ctx.beginPath();
         ctx.moveTo(fromNode.x * scaleX, fromNode.y * scaleY);
         ctx.lineTo(toNode.x * scaleX, toNode.y * scaleY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+
+    // Draw active path edges on top
+    if (currentPath) {
+      currentPath.edges.forEach((edge) => {
+        const fromNode = graph.nodes.find(n => n.id === edge.from);
+        const toNode = graph.nodes.find(n => n.id === edge.to);
         
-        // Highlight if part of current path
-        const isActive = currentPath?.edges.some(e => e.from === edge.from && e.to === edge.to);
-        
-        if (isActive) {
-          // Create gradient for active edge
+        if (fromNode && toNode) {
+          // Animated gradient along the edge
           const gradient = ctx.createLinearGradient(
             fromNode.x * scaleX, fromNode.y * scaleY,
             toNode.x * scaleX, toNode.y * scaleY
           );
           
-          const progress = Math.max(0, Math.min(1, animationProgress * paths.length - pathIndexRef.current));
-          gradient.addColorStop(0, `rgba(110, 231, 183, ${progress * 0.8})`);
-          gradient.addColorStop(progress, `rgba(110, 231, 183, ${progress * 0.8})`);
-          gradient.addColorStop(Math.min(1, progress + 0.1), 'rgba(110, 231, 183, 0)');
-          gradient.addColorStop(1, 'rgba(110, 231, 183, 0)');
+          const edgeProgress = (scrollProgress * 10) % 2;
+          gradient.addColorStop(0, 'rgba(110, 231, 183, 0.8)');
+          gradient.addColorStop(Math.min(1, edgeProgress), 'rgba(110, 231, 183, 0.8)');
+          gradient.addColorStop(Math.min(1, edgeProgress + 0.1), 'rgba(110, 231, 183, 0)');
           
+          ctx.beginPath();
+          ctx.moveTo(fromNode.x * scaleX, fromNode.y * scaleY);
+          ctx.lineTo(toNode.x * scaleX, toNode.y * scaleY);
           ctx.strokeStyle = gradient;
           ctx.lineWidth = 3;
-        } else {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-          ctx.lineWidth = 1;
+          ctx.stroke();
         }
-        
-        ctx.stroke();
-      }
-    });
+      });
+    }
 
     // Draw nodes
     graph.nodes.forEach(node => {
@@ -70,16 +74,14 @@ const GraphCanvas: React.FC = () => {
       // Check if node is in current path
       const isActive = currentPath?.nodes.includes(node.id);
       const nodeIndex = currentPath?.nodes.indexOf(node.id) ?? -1;
-      const isCurrentlyAnimated = isActive && 
-        animationProgress * currentPath!.nodes.length > nodeIndex &&
-        animationProgress * currentPath!.nodes.length < nodeIndex + 1;
+      const isLastNode = isActive && nodeIndex === currentPath!.nodes.length - 1;
       
       ctx.beginPath();
-      ctx.arc(x, y, node.tier === 3 ? 10 : 6, 0, Math.PI * 2);
+      ctx.arc(x, y, node.id === 'buyer' ? 10 : 8, 0, Math.PI * 2);
       
-      if (isCurrentlyAnimated) {
-        // Pulsing effect for currently animated node
-        const pulse = Math.sin(animationProgress * Math.PI * 4) * 0.3 + 0.7;
+      if (isLastNode) {
+        // Pulsing effect for last active node
+        const pulse = Math.sin(Date.now() * 0.003) * 0.3 + 0.7;
         ctx.fillStyle = `rgba(110, 231, 183, ${pulse})`;
         ctx.fill();
         
@@ -87,7 +89,7 @@ const GraphCanvas: React.FC = () => {
         ctx.shadowBlur = 20;
         ctx.shadowColor = '#6EE7B7';
       } else if (isActive) {
-        ctx.fillStyle = 'rgba(110, 231, 183, 0.5)';
+        ctx.fillStyle = 'rgba(110, 231, 183, 0.6)';
         ctx.fill();
       } else {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
@@ -100,8 +102,16 @@ const GraphCanvas: React.FC = () => {
       ctx.strokeStyle = isActive ? '#6EE7B7' : 'rgba(255, 255, 255, 0.3)';
       ctx.lineWidth = 1;
       ctx.stroke();
+      
+      // Add labels for active nodes
+      if (isActive) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '12px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText(node.label, x, y - 15);
+      }
     });
-  }, [graph, paths, currentPath, animationProgress]);
+  }, [graph, currentPath, scrollProgress]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -136,40 +146,53 @@ const GraphCanvas: React.FC = () => {
   }, [drawGraph]);
 
   useEffect(() => {
-    // Animation loop
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    
-    if (prefersReducedMotion) {
-      // Static graph with soft glow on buyer node
-      setCurrentPath(paths[0] || null);
-      setAnimationProgress(1);
-      return;
-    }
-
-    const animate = () => {
-      setAnimationProgress(prev => {
-        if (prev >= 1) {
-          // Start new path
-          pathIndexRef.current = (pathIndexRef.current + 1) % paths.length;
-          setCurrentPath(paths[pathIndexRef.current]);
-          return 0;
-        }
-        return prev + 0.008; // Adjust speed here
-      });
+    // Scroll-based animation
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollableHeight = documentHeight - windowHeight;
+      const progress = Math.min(1, Math.max(0, scrollY / scrollableHeight));
       
-      animationRef.current = requestAnimationFrame(animate);
+      setScrollProgress(progress);
+      
+      // Update path based on scroll
+      const newPath = getScrollPath(graph, progress);
+      setCurrentPath(newPath);
     };
 
-    // Start with first path
-    setCurrentPath(paths[0]);
-    animate();
-
+    // Initial setup
+    handleScroll();
+    
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+    
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
     };
-  }, [paths]);
+  }, [graph]);
+
+  // Animation loop for pulsing effects and gradient movement
+  useEffect(() => {
+    let animationId: number;
+    
+    const animate = () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const rect = canvas.getBoundingClientRect();
+          drawGraph(ctx, rect.width, rect.height);
+        }
+      }
+      animationId = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    
+    return () => cancelAnimationFrame(animationId);
+  }, [drawGraph]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -211,7 +234,7 @@ const GraphCanvas: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-crosshair"
