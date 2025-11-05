@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="relative z-10 py-16 px-6 border-t border-white/5 backdrop-blur-md bg-background/60">
+    <footer className="relative z-10 py-32 px-6 border-t border-white/5 backdrop-blur-md bg-background/60 min-h-[50vh]">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0 }}
