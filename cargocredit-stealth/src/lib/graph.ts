@@ -507,15 +507,27 @@ export function getScrollBasedFlow(graph: Graph, scrollProgress: number): {
     }
 
     // BoE splits and routes to tier 2
-    if (stageProgress > 0.5) {
+    if (stageProgress >= 0.3) {
       graph.edges.filter(e => e.from === 'tier3-assembler').forEach((edge, i) => {
-        activeEdges.push({
-          edge,
-          flowProgress: Math.min(1, (stageProgress - 0.5 - i * 0.05) * 3),
-          direction: 'down',
-          flowType: 'boe'
-        });
-        if (stageProgress > 0.6 + i * 0.05) {
+        // Calculate when this split turns green in overlay
+        // Overlay formula: splitProgress = (progress - i * 0.15) / 0.7
+        // Split turns green at splitProgress = 0.5, so: progress = 0.35 + i * 0.15
+        const greenThreshold = 0.35 + i * 0.15;
+
+        // Edge flow starts slightly before green threshold
+        const edgeStartThreshold = Math.max(0.3, greenThreshold - 0.15);
+
+        if (stageProgress >= edgeStartThreshold) {
+          activeEdges.push({
+            edge,
+            flowProgress: Math.min(1, (stageProgress - edgeStartThreshold) / 0.4),
+            direction: 'down',
+            flowType: 'boe'
+          });
+        }
+
+        // Node brightens exactly when split turns green in overlay
+        if (stageProgress >= greenThreshold) {
           updateOrAddNode(edge.to, 1);
         }
       });
@@ -530,6 +542,10 @@ export function getScrollBasedFlow(graph: Graph, scrollProgress: number): {
     graph.nodes.forEach(node => {
       updateOrAddNode(node.id, 0.6);
     });
+
+    // Keep buyer and tier3-assembler at full intensity - they're the payment source
+    updateOrAddNode('buyer', 1);
+    updateOrAddNode('tier3-assembler', 1);
 
     // Payment flows back up
     if (stageProgress >= 0) {
