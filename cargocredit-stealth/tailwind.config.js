@@ -3,20 +3,20 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "!./src/_archive/**/*",
   ],
   theme: {
     extend: {
       colors: {
-        background: '#0B0B0C',
-        text: '#F5F7FA',
-        accent: '#6EE7B7',
-        muted: '#6B7280',
+        background: '#0A0A0B',
+        text: '#F4F4F5',
+        muted: '#71717A',
+        subtle: '#27272A',
+        accent: '#C7A56A',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-      },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
       },
     },
   },
